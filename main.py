@@ -34,7 +34,7 @@ def main():
                 descripcion = input("\nDescripción: ")
                 amount = float(input("Monto: S/. "))
                 tipo = input("Tipo (ingreso/gasto): ").lower()
-
+ 
                 if tipo not in ['ingreso', 'gasto']:
                     print("[Error] Tipo inválido")
                     continue
