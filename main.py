@@ -7,35 +7,59 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # ==========================================
-# 1. PROGRAMACIÓN ORIENTADA A OBJETOS (POO)
+# 1. MODELOS DE DATOS (POO)
 # ==========================================
+class Ingreso:
+    def __init__(self, monto, descripcion):
+        self.__monto = float(monto)
+        self.__descripcion = descripcion
+        self.__fecha = datetime.date.today().strftime("%Y-%m-%d")
+
+    def get_monto(self):
+        return self.__monto
+
+    def get_descripcion(self):
+        return self.__descripcion
+
+    def get_fecha(self):
+        return self.__fecha
+
+    def __str__(self):
+        return f"[{self.__fecha}] S/.{self.__monto} - {self.__descripcion}"
+
+
 class Gasto:
     def __init__(self, monto, descripcion):
-        """Inicializa un gasto con monto, descripción, fecha actual y categoría vacía."""
-        self.__monto = float(monto) # Encapsulación básica
+        self.__monto = float(monto)
         self.__descripcion = descripcion
         self.__fecha = datetime.date.today().strftime("%Y-%m-%d")
         self.__categoria = None
+        self.__subcategoria = None
 
-    # Getters
     def get_monto(self):
         return self.__monto
-    
+
     def get_descripcion(self):
         return self.__descripcion
-    
+
     def get_fecha(self):
         return self.__fecha
-    
+
     def get_categoria(self):
         return self.__categoria
-    
-    # Setter
+
+    def get_subcategoria(self):
+        return self.__subcategoria
+
     def set_categoria(self, categoria):
         self.__categoria = categoria
 
+    def set_subcategoria(self, subcategoria):
+        self.__subcategoria = subcategoria
+
     def __str__(self):
-        return f"[{self.__fecha}] S/.{self.__monto} - {self.__descripcion} (Cat: {self.__categoria})"
+        return f"[{self.__fecha}] S/.{self.__monto} - {self.__descripcion} ({self.__categoria} -> {self.__subcategoria})"
+
 
 
 # ==========================================
@@ -43,29 +67,33 @@ class Gasto:
 # ==========================================
 class ClasificadorIA:
     def __init__(self):
-        print("\n[Sistema] Cargando modelo de Inteligencia Artificial (Hugging Face)...")
-        print("[Sistema] Esto puede tardar unos segundos la primera vez.")
-        # Usamos Zero-Shot Classification para categorizar texto sin entrenamiento previo
-        # Se usa el modelo multilingüe para que entienda español
+        print("\n[Sistema] Cargando modelo de Inteligencia Artificial...")
         self.clasificador = pipeline("zero-shot-classification", model="MoritzLaurer/mDeBERTa-v3-base-mnli-xnli")
-        
-        # Definimos las categorías financieras posibles
-        self.categorias_candidatas = [
-            "Alimentación y Comida", 
-            "Transporte y Pasajes", 
-            "Educación y Estudios", 
-            "Entretenimiento y Ocio", 
+        self.categorias = [
+            "Alimentación y Comida",
+            "Transporte y Pasajes",
+            "Educación y Estudios",
+            "Entretenimiento y Ocio",
             "Salud y Farmacia",
             "Hogar y Servicios"
         ]
+        self.subcategorias = {
+            "Alimentación y Comida": ["Restaurantes", "Supermercado", "Snacks y Delivery"],
+            "Transporte y Pasajes": ["Taxi / Colectivo", "Pasajes / Transporte Público", "Combustible y Auto"],
+            "Educación y Estudios": ["Mensualidades y Cursos", "Libros y Materiales", "Otros Estudios"],
+            "Entretenimiento y Ocio": ["Cine y Eventos", "Hobbies", "Suscripciones y Juegos"],
+            "Salud y Farmacia": ["Consultas Médicas", "Medicamentos", "Seguros y Exámenes"],
+            "Hogar y Servicios": ["Alquiler / Hipoteca", "Servicios (Luz, Agua, Internet)", "Mantenimiento y Hogar"]
+        }
 
     def categorizar_gasto(self, descripcion):
-        """Analiza la descripción y retorna la categoría más probable."""
-        print("\n[IA] Analizando el gasto...")
-        resultado = self.clasificador(descripcion, self.categorias_candidatas)
-        # Retorna la categoría con el score (probabilidad) más alto
-        categoria_predicha = resultado['labels'][0]
-        return categoria_predicha
+        res_cat = self.clasificador(descripcion, self.categorias)
+        cat = res_cat['labels'][0]
+        subcats = self.subcategorias.get(cat, ["Otros"])
+        res_sub = self.clasificador(descripcion, subcats)
+        subcat = res_sub['labels'][0]
+        return cat, subcat
+
 
 
 # ==========================================
@@ -80,7 +108,6 @@ class BaseDeDatos:
         return sqlite3.connect(self.nombre_db)
 
     def crear_tabla(self):
-        """Crea la tabla si no existe en la base de datos."""
         conexion = self.conectar()
         cursor = conexion.cursor()
         cursor.execute('''
@@ -89,32 +116,70 @@ class BaseDeDatos:
                 fecha TEXT NOT NULL,
                 descripcion TEXT NOT NULL,
                 monto REAL NOT NULL,
-                categoria TEXT NOT NULL
+                categoria TEXT NOT NULL,
+                subcategoria TEXT NOT NULL DEFAULT 'Otros'
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS registro_ingresos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fecha TEXT NOT NULL,
+                descripcion TEXT NOT NULL,
+                monto REAL NOT NULL
+            )
+        ''')
+        try:
+            cursor.execute("SELECT subcategoria FROM registro_gastos LIMIT 1")
+        except sqlite3.OperationalError:
+            cursor.execute("ALTER TABLE registro_gastos ADD COLUMN subcategoria TEXT NOT NULL DEFAULT 'Otros'")
         conexion.commit()
         conexion.close()
 
     def insertar_gasto(self, gasto):
-        """Inserta un objeto Gasto en la base de datos usando DML."""
         conexion = self.conectar()
         cursor = conexion.cursor()
         cursor.execute('''
-            INSERT INTO registro_gastos (fecha, descripcion, monto, categoria)
-            VALUES (?, ?, ?, ?)
-        ''', (gasto.get_fecha(), gasto.get_descripcion(), gasto.get_monto(), gasto.get_categoria()))
+            INSERT INTO registro_gastos (fecha, descripcion, monto, categoria, subcategoria)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (gasto.get_fecha(), gasto.get_descripcion(), gasto.get_monto(), gasto.get_categoria(), gasto.get_subcategoria()))
         conexion.commit()
         conexion.close()
         print("[Base de Datos] Gasto guardado exitosamente.")
 
-    def generar_reporte_agrupado(self):
-        """Realiza una consulta SELECT agrupada por categoría."""
+    def insertar_ingreso(self, ingreso):
         conexion = self.conectar()
         cursor = conexion.cursor()
         cursor.execute('''
-            SELECT categoria, SUM(monto) as total
+            INSERT INTO registro_ingresos (fecha, descripcion, monto)
+            VALUES (?, ?, ?)
+        ''', (ingreso.get_fecha(), ingreso.get_descripcion(), ingreso.get_monto()))
+        conexion.commit()
+        conexion.close()
+        print("[Base de Datos] Ingreso guardado exitosamente.")
+
+    def obtener_total_ingresos(self):
+        conexion = self.conectar()
+        cursor = conexion.cursor()
+        cursor.execute("SELECT SUM(monto) FROM registro_ingresos")
+        res = cursor.fetchone()[0]
+        conexion.close()
+        return res if res is not None else 0.0
+
+    def obtener_total_gastos(self):
+        conexion = self.conectar()
+        cursor = conexion.cursor()
+        cursor.execute("SELECT SUM(monto) FROM registro_gastos")
+        res = cursor.fetchone()[0]
+        conexion.close()
+        return res if res is not None else 0.0
+
+    def generar_reporte_gastos(self):
+        conexion = self.conectar()
+        cursor = conexion.cursor()
+        cursor.execute('''
+            SELECT categoria, subcategoria, SUM(monto) as total
             FROM registro_gastos
-            GROUP BY categoria
+            GROUP BY categoria, subcategoria
             ORDER BY total DESC
         ''')
         resultados = cursor.fetchall()
@@ -124,74 +189,80 @@ class BaseDeDatos:
 
 # ==========================================
 # 4. INTERFAZ Y LÓGICA PRINCIPAL (main)
-# ==========================================
 def main():
     print("="*50)
     print(" ASISTENTE INTELIGENTE DE FINANZAS PERSONALES ")
     print("="*50)
 
-    # Inicializar componentes
     bd = BaseDeDatos()
     
-    # Manejo de excepciones al cargar el modelo
     try:
         ia = ClasificadorIA()
     except Exception as e:
-        print(f"\n[Error Crítico] No se pudo cargar el modelo de IA: {e}")
-        print("Asegúrate de tener instalada la librería: pip install transformers torch")
+        print(f"\n[Error] No se pudo cargar el modelo de IA: {e}")
         return
 
     while True:
         print("\n--- MENÚ PRINCIPAL ---")
-        print("1. Registrar un nuevo gasto")
-        print("2. Ver reporte de gastos por categoría")
-        print("3. Salir")
+        print("1. Registrar un nuevo ingreso")
+        print("2. Registrar un nuevo gasto")
+        print("3. Ver reporte financiero")
+        print("4. Salir")
         
-        opcion = input("Selecciona una opción (1-3): ")
+        opcion = input("Selecciona una opción (1-4): ")
 
         if opcion == '1':
             try:
-                monto_input = float(input("\nIngresa el monto gastado (Ej. 35.50): S/."))
-                desc_input = input("Describe en qué gastaste el dinero: ")
-                
-                # 1. Crear el objeto
-                nuevo_gasto = Gasto(monto_input, desc_input)
-                
-                # 2. Inteligencia artificial predice la categoría
-                categoria_asignada = ia.categorizar_gasto(nuevo_gasto.get_descripcion())
-                nuevo_gasto.set_categoria(categoria_asignada)
-                
-                print(f"-> La IA clasificó tu gasto como: '{categoria_asignada}'")
-                
-                # 3. Guardar en Base de Datos
-                bd.insertar_gasto(nuevo_gasto)
-                
+                monto = float(input("\nIngresa el monto del ingreso: S/."))
+                desc = input("Describe el origen del ingreso: ")
+                nuevo_ingreso = Ingreso(monto, desc)
+                bd.insertar_ingreso(nuevo_ingreso)
             except ValueError:
-                print("\n[Error] El monto ingresado no es válido. Debe ser un número.")
-                
+                print("\n[Error] El monto debe ser un número.")
+
         elif opcion == '2':
-            print("\n--- REPORTE DE GASTOS ACUMULADOS ---")
-            reporte = bd.generar_reporte_agrupado()
-            
-            if not reporte:
-                print("Aún no tienes gastos registrados.")
-            else:
-                total_general = 0
-                print(f"{'CATEGORÍA':<25} | {'TOTAL (S/.)':<10}")
-                print("-" * 40)
-                for fila in reporte:
-                    categoria, total = fila
-                    print(f"{categoria:<25} | S/. {total:.2f}")
-                    total_general += total
+            try:
+                monto = float(input("\nIngresa el monto gastado: S/."))
+                desc = input("Describe en qué gastaste el dinero: ")
+                nuevo_gasto = Gasto(monto, desc)
                 
-                print("-" * 40)
-                print(f"{'TOTAL GASTADO:':<25} | S/. {total_general:.2f}")
+                cat, subcat = ia.categorizar_gasto(nuevo_gasto.get_descripcion())
+                nuevo_gasto.set_categoria(cat)
+                nuevo_gasto.set_subcategoria(subcat)
                 
+                print(f"-> La IA clasificó tu gasto como: '{cat}' > '{subcat}'")
+                bd.insertar_gasto(nuevo_gasto)
+            except ValueError:
+                print("\n[Error] El monto debe ser un número.")
+
         elif opcion == '3':
-            print("\nCerrando el asistente. ¡Hasta luego!")
+            print("\n--- RESUMEN FINANCIERO ---")
+            total_ingresos = bd.obtener_total_ingresos()
+            total_gastos = bd.obtener_total_gastos()
+            balance = total_ingresos - total_gastos
+            
+            print(f"Total Ingresos: S/. {total_ingresos:.2f}")
+            print(f"Total Gastos:   S/. {total_gastos:.2f}")
+            print(f"Balance Neto:   S/. {balance:.2f}")
+            print("-" * 62)
+            
+            reporte_gastos = bd.generar_reporte_gastos()
+            if not reporte_gastos:
+                print("No hay gastos registrados.")
+            else:
+                print(f"{'CATEGORÍA':<20} | {'SUBCATEGORÍA':<20} | {'TOTAL (S/.)':<10}")
+                print("-" * 62)
+                for fila in reporte_gastos:
+                    cat, subcat, total = fila
+                    print(f"{cat:<20} | {subcat:<20} | S/. {total:.2f}")
+                print("-" * 62)
+
+        elif opcion == '4':
+            print("\n¡Hasta luego!")
             break
         else:
-            print("\n[Error] Opción no válida. Intenta nuevamente.")
+            print("\n[Error] Opción no válida.")
+
 
 if __name__ == "__main__":
     main()
