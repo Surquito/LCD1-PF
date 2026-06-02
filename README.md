@@ -5,5 +5,6 @@ Tratará de un asistente financiero automatizado que opera a través de la conso
 ---
 
 ## Autores
-Gerson Ronaldo Surco Alata - www.linkedin.com/in/gerson-surco-alata-53b42026a
-Rocio del Pilar Apaza Machicao
+* Gerson Ronaldo Surco Alata - www.linkedin.com/in/gerson-surco-alata-53b42026a<br>
+* Rocio del Pilar Apaza Machicao<br>
+* Kevin Arnold Martinez Melendes - www.linkedin.com/in/kevinarnoldmartinezmelendes 
