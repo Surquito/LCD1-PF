@@ -15,6 +15,12 @@ def get_connection():
             port=os.getenv("DB_PORT"),
             sslmode="prefer"  # IMPORTANTE para Supabase
         )
+        
+        cursor = conn.cursor()
+        cursor.execute('SET search_path TO "personal-finance-ai", public;')
+        conn.commit()
+        cursor.close()
+        
         return conn
 
     except Exception as e:
