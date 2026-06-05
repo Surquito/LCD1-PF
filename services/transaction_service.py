@@ -23,17 +23,27 @@ def insert_transaction(txn: Transaction):
 
 
 # Reporte agrupado por categoría
-def get_report_by_category():
+def get_report_by_category(type_txn=None):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT c.description, SUM(t.amount)
-        FROM tbl_transactions t
-        JOIN tbl_category c ON t.id_category = c.id_category
-        GROUP BY c.description
-        ORDER BY SUM(t.amount) DESC
-    """)
+    if type_txn:
+        cursor.execute("""
+            SELECT c.description, SUM(t.amount)
+            FROM tbl_transactions t
+            JOIN tbl_category c ON t.id_category = c.id_category
+            WHERE t.type_txn = %s
+            GROUP BY c.description
+            ORDER BY SUM(t.amount) DESC
+        """, (type_txn,))
+    else:
+        cursor.execute("""
+            SELECT c.description, SUM(t.amount)
+            FROM tbl_transactions t
+            JOIN tbl_category c ON t.id_category = c.id_category
+            GROUP BY c.description
+            ORDER BY SUM(t.amount) DESC
+        """)
 
     result = cursor.fetchall()
     conn.close()
