@@ -60,9 +60,11 @@ def main():
                             print("[Alerta] El monto ingresado debe ser mayor que cero.")
                             continue
 
+
                         # Le pedimos a la IA que decida la categoria mas adecuada segun el texto
                         id_categoria = ia.categorizar_y_mapear(descripcion, categorias)
-                        print(f"-> Categoría sugerida por la IA (ID): {id_categoria}")
+                        categoria_nombre = next((cat.description for cat in categorias if cat.id_category == id_categoria), "Sin categoría")
+                        print(f"→ Categoría detectada: {categoria_nombre}")
 
                         # Armamos la estructura de la transaccion con los datos que tenemos
                         txn = Transaction(
@@ -72,6 +74,9 @@ def main():
                             id_user=1,  # por ahora el id_user es 1 por defecto
                             id_category=id_categoria
                         )
+
+                
+
 
                         # Mandamos a guardar la transaccion a la base de datos
                         insert_transaction(txn)
