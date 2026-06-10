@@ -22,27 +22,37 @@ def insert_transaction(txn: Transaction):
     conn.close()
 
 
-# Reporte agrupado por categoría
+# Reporte agrupado por categoría y subcategoría
 def get_report_by_category(type_txn=None):
     conn = get_connection()
     cursor = conn.cursor()
 
     if type_txn:
         cursor.execute("""
-            SELECT c.description, SUM(t.amount)
+            SELECT 
+                COALESCE(c_parent.description, c_child.description) AS category,
+                CASE WHEN c_child.id_subcategory IS NOT NULL THEN c_child.description ELSE 'Sin subcategoría' END AS subcategory,
+                SUM(t.amount) AS total
             FROM tbl_transactions t
-            JOIN tbl_category c ON t.id_category = c.id_category
+            JOIN tbl_category c_child ON t.id_category = c_child.id_category
+            LEFT JOIN tbl_category c_parent ON c_child.id_subcategory = c_parent.id_category
             WHERE t.type_txn = %s
-            GROUP BY c.description
-            ORDER BY SUM(t.amount) DESC
+            GROUP BY COALESCE(c_parent.description, c_child.description), 
+                     CASE WHEN c_child.id_subcategory IS NOT NULL THEN c_child.description ELSE 'Sin subcategoría' END
+            ORDER BY total DESC
         """, (type_txn,))
     else:
         cursor.execute("""
-            SELECT c.description, SUM(t.amount)
+            SELECT 
+                COALESCE(c_parent.description, c_child.description) AS category,
+                CASE WHEN c_child.id_subcategory IS NOT NULL THEN c_child.description ELSE 'Sin subcategoría' END AS subcategory,
+                SUM(t.amount) AS total
             FROM tbl_transactions t
-            JOIN tbl_category c ON t.id_category = c.id_category
-            GROUP BY c.description
-            ORDER BY SUM(t.amount) DESC
+            JOIN tbl_category c_child ON t.id_category = c_child.id_category
+            LEFT JOIN tbl_category c_parent ON c_child.id_subcategory = c_parent.id_category
+            GROUP BY COALESCE(c_parent.description, c_child.description), 
+                     CASE WHEN c_child.id_subcategory IS NOT NULL THEN c_child.description ELSE 'Sin subcategoría' END
+            ORDER BY total DESC
         """)
 
     result = cursor.fetchall()

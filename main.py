@@ -1,11 +1,22 @@
 import warnings
 from models.transaction import Transaction
+from models.category import Category
 from services.transaction_service import insert_transaction, get_report_by_category
-from services.category_service import get_all_categories
+from services.category_service import get_all_categories, get_subcategories_by_parent, create_category
 from ai.clasificadorIA import ClasificadorIA
 
 
 warnings.filterwarnings("ignore")
+
+def gestionar_subcategoria(parent_id, descripcion, ia):
+    subcategorias = get_subcategories_by_parent(parent_id)
+    if not subcategorias:
+        return None
+    
+    id_subcategoria, subcat_nombre = ia.categorizar_y_mapear_subcategoria(descripcion, subcategorias)
+    if id_subcategoria:
+        print(f"-> Subcategoría sugerida por la IA: {subcat_nombre} (ID: {id_subcategoria})")
+    return id_subcategoria
 
 def main():
     print("="*50)
@@ -19,8 +30,7 @@ def main():
         print(f"\n[Error] No se pudo iniciar el modelo de IA: {e}")
         return
 
-    # Jalamos todas las categorias que esten guardadas en la base de datos
-    categorias = get_all_categories()
+
 
     while True:
         # Dibujamos el menu principal en la pantalla
@@ -61,8 +71,14 @@ def main():
                             continue
 
                         # Le pedimos a la IA que decida la categoria mas adecuada segun el texto
-                        id_categoria = ia.categorizar_y_mapear(descripcion, categorias)
-                        print(f"-> Categoría sugerida por la IA (ID): {id_categoria}")
+                        id_categoria, cat_nombre = ia.categorizar_y_mapear(descripcion, 'ingreso')
+                        print(f"-> Categoría sugerida por la IA: {cat_nombre} (ID: {id_categoria})")
+
+                        # Gestionamos la subcategoría
+                        id_subcategoria = gestionar_subcategoria(id_categoria, descripcion, ia)
+
+                        # Si la IA sugiere subcategoría, guardamos ese ID en la transacción; de lo contrario, la principal.
+                        id_final = id_subcategoria if id_subcategoria else id_categoria
 
                         # Armamos la estructura de la transaccion con los datos que tenemos
                         txn = Transaction(
@@ -70,7 +86,7 @@ def main():
                             amount=amount,
                             type_txn="ingreso",
                             id_user=1,  # por ahora el id_user es 1 por defecto
-                            id_category=id_categoria
+                            id_category=id_final
                         )
 
                         # Mandamos a guardar la transaccion a la base de datos
@@ -87,11 +103,11 @@ def main():
                     if not reporte:
                         print("Todavía no tienes ningún ingreso registrado.")
                     else:
-                        print(f"{'CATEGORÍA':<25} | {'TOTAL':<15}")
-                        print("-" * 43)
-                        for categoria, total in reporte:
-                            print(f"{categoria:<25} | S/. {total:.2f}")
-                        print("-" * 43)
+                        print(f"{'CATEGORÍA':<20} | {'SUBCATEGORÍA':<20} | {'TOTAL':<15}")
+                        print("-" * 62)
+                        for categoria, subcategoria, total in reporte:
+                            print(f"{categoria:<20} | {subcategoria:<20} | S/. {total:.2f}")
+                        print("-" * 62)
                 
                 elif sub_opcion == '3':
                     # Salimos del bucle interno para volver al menu principal
@@ -126,8 +142,14 @@ def main():
                             continue
 
                         # La IA analiza la descripcion para asociarle una categoria
-                        id_categoria = ia.categorizar_y_mapear(descripcion, categorias)
-                        print(f"-> Categoría sugerida por la IA (ID): {id_categoria}")
+                        id_categoria, cat_nombre = ia.categorizar_y_mapear(descripcion, 'gasto')
+                        print(f"-> Categoría sugerida por la IA: {cat_nombre} (ID: {id_categoria})")
+
+                        # Gestionamos la subcategoría
+                        id_subcategoria = gestionar_subcategoria(id_categoria, descripcion, ia)
+
+                        # Si la IA sugiere subcategoría, guardamos ese ID en la transacción; de lo contrario, la principal.
+                        id_final = id_subcategoria if id_subcategoria else id_categoria
 
                         # Armamos la estructura del gasto para mandarlo
                         txn = Transaction(
@@ -135,7 +157,7 @@ def main():
                             amount=amount,
                             type_txn="gasto",
                             id_user=1,  # por ahora el id_user es 1 por defecto
-                            id_category=id_categoria
+                            id_category=id_final
                         )
 
                         # Guardamos el gasto en la base de datos
@@ -152,11 +174,11 @@ def main():
                     if not reporte:
                         print("Todavía no tienes ningún gasto registrado.")
                     else:
-                        print(f"{'CATEGORÍA':<25} | {'TOTAL':<15}")
-                        print("-" * 43)
-                        for categoria, total in reporte:
-                            print(f"{categoria:<25} | S/. {total:.2f}")
-                        print("-" * 43)
+                        print(f"{'CATEGORÍA':<20} | {'SUBCATEGORÍA':<20} | {'TOTAL':<15}")
+                        print("-" * 62)
+                        for categoria, subcategoria, total in reporte:
+                            print(f"{categoria:<20} | {subcategoria:<20} | S/. {total:.2f}")
+                        print("-" * 62)
                 
                 elif sub_opcion == '3':
                     # Regresamos al menu principal rompiendo el bucle del submenu

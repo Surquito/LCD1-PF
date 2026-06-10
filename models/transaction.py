@@ -11,7 +11,7 @@ class Transaction:
         self.dcompdate = dcompdate
 
     def __str__(self):
-        return f"Transaction({self.id_txn}, {self.description}, {self.amount}, {self.type_txn})"
+        return f"Transaction({self.id_txn}, {self.description}, {self.amount}, {self.type_txn}, Cat: {self.id_category})"
 
     def is_income(self):
         return self.type_txn == 'ingreso'
