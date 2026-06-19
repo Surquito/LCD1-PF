@@ -34,3 +34,22 @@ def login(username, password):
     conn.close()
 
     return user  # None si no existe
+
+
+def get_user_by_username(username):
+    conn = get_connection()
+    if not conn:
+        return None
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id_user, username
+        FROM tbl_users
+        WHERE username = %s
+    """, (username,))
+
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    return user  # None si no existe
