@@ -64,7 +64,6 @@ def iniciar_sesion():
         else:
             print("[Alerta] Opción no válida. Elige 1, 2 o 3.")
 
-
 warnings.filterwarnings("ignore")
 
 def gestionar_subcategoria(parent_id, descripcion, ia):
@@ -154,9 +153,6 @@ def main():
                             id_user=current_user_id,
                             id_category=id_final
                         )
-
-                
-
 
                         # Mandamos a guardar la transaccion a la base de datos
                         insert_transaction(txn)
